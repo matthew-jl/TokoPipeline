@@ -3,17 +3,25 @@ import re
 import time
 from playwright.sync_api import sync_playwright, TimeoutError
 from typing import List, Dict
+from datetime import datetime
+import boto3
+
+def upload_to_s3(bucket_name: str, data: List[Dict]) -> None:
+    s3_client = boto3.client('s3')
+    json_data = json.dumps(data, indent=4, ensure_ascii=False)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    file_name = f"raw-reviews/reviews_{timestamp}.json"
+    try:
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=file_name,
+            Body=json_data.encode('utf-8')
+        )
+        print(f"\nSuccessfully uploaded data to s3://{bucket_name}/{file_name}")
+    except Exception as e:
+        print(f"Error uploading to S3: {e}")
 
 def scrape_tokopedia_reviews(url: str) -> List[Dict]:
-    """
-    Scrapes the first page of product reviews from a Tokopedia review URL.
-
-    Args:
-        url: The full URL of the Tokopedia product review page.
-
-    Returns:
-        A list of dictionaries, where each dictionary represents a review.
-    """
     
     all_reviews_data = []
     scraped_review_texts = set()
@@ -95,17 +103,21 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
     return all_reviews_data
 
 if __name__ == "__main__":
+    S3_BUCKET_NAME = "tokopedia-reviews-matthewjl"
+
     # (REPLACE THIS WITH DESIRED PRODUCT REVIEW PAGE. Make sure it ends with "/review" for Tokopedia)
     target_url = "https://www.tokopedia.com/project1945/project-1945-x-cj-petruk-perfume-edp-parfum-unisex-100ml-1730927312240412298/review"
     
     scraped_reviews = scrape_tokopedia_reviews(target_url)
     
     if scraped_reviews:
-        output_filename = "reviews.json"
-        with open(output_filename, 'w', encoding='utf-8') as f:
-            json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
+        # output_filename = "reviews.json"
+        # with open(output_filename, 'w', encoding='utf-8') as f:
+        #     json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
         
         print(f"\nSuccessfully scraped a total of {len(scraped_reviews)} unique reviews.")
-        print(f"Data saved to {output_filename}")
+        # print(f"Data saved to {output_filename}")
+
+        upload_to_s3(S3_BUCKET_NAME, scraped_reviews)
     else:
         print("\nNo reviews were scraped. An empty file was not created.")
