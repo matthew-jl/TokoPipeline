@@ -31,13 +31,28 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
         # headless=False -> see the browser UI
         # headless=True -> automation
         browser = p.chromium.launch(headless=False)
-        
         page = browser.new_page()
         
         try:
             print(f"Navigating to {url}...")
             page.goto(url, wait_until="domcontentloaded", timeout=60000) # Adjust timeout if connection is slow
             print("Initial page loaded.")
+
+            print("Checking for initial page overlay/modal...")
+            try:
+                close_button_selector = "div.css-11hzwo5 button"
+                
+                page.wait_for_selector(close_button_selector, timeout=5000)
+                
+                print("Overlay found. Clicking close button...")
+                page.click(close_button_selector)
+                
+                page.wait_for_selector(close_button_selector, state="detached", timeout=5000)
+                print("Overlay closed successfully.")
+            except TimeoutError:
+                print("No overlay found. Continuing to scrape.")
+            except Exception as e:
+                print(f"An error occurred while trying to close the overlay: {e}")
 
             page_number = 1
 
@@ -86,7 +101,7 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
                 next_button.click()
                 
                 print("Waiting for new content to load...")
-                page.wait_for_load_state('networkidle', timeout=10000)
+                page.wait_for_load_state('networkidle', timeout=20000)
                 
                 page_number += 1
                 time.sleep(1) # to avoid overwhelming server
@@ -111,13 +126,16 @@ if __name__ == "__main__":
     scraped_reviews = scrape_tokopedia_reviews(target_url)
     
     if scraped_reviews:
+        
+        print(f"\nSuccessfully scraped a total of {len(scraped_reviews)} unique reviews.")
+
+        # Save to local file (comment out)
         # output_filename = "reviews.json"
         # with open(output_filename, 'w', encoding='utf-8') as f:
         #     json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
-        
-        print(f"\nSuccessfully scraped a total of {len(scraped_reviews)} unique reviews.")
         # print(f"Data saved to {output_filename}")
 
+        # Upload to S3
         upload_to_s3(S3_BUCKET_NAME, scraped_reviews)
     else:
         print("\nNo reviews were scraped. An empty file was not created.")
