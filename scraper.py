@@ -104,7 +104,7 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
                 page.wait_for_load_state('networkidle', timeout=20000)
                 
                 page_number += 1
-                time.sleep(1) # to avoid overwhelming server
+                time.sleep(2) # to avoid overwhelming server
 
         except TimeoutError:
             print("A timeout occurred while waiting for new content. Assuming end of pages.")
