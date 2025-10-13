@@ -8,6 +8,7 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from pyspark.sql.functions import col, when
 from pyspark.sql.types import IntegerType
+from awsglue.dynamicframe import DynamicFrame
 
 def get_latest_s3_object_key(bucket, prefix):
     s3_client = boto3.client('s3')
@@ -85,5 +86,21 @@ print("\n--- Final Transformed DataFrame Schema ---")
 df_final.printSchema()
 print("\n--- Sample of Final Data (Top 10 rows) ---")
 df_final.show(10, truncate=False)
+
+print("Preparing to write data to the clean zone...")
+s3_output_path = f"s3://{s3_bucket}/clean-reviews-parquet/"
+# convert the Spark DataFrame back to a Glue DynamicFrame
+dynamic_frame_final = DynamicFrame.fromDF(df_final, glueContext, "dynamic_frame_final")
+
+glueContext.write_dynamic_frame.from_options(
+    frame=dynamic_frame_final,
+    connection_type="s3",
+    format="parquet",
+    connection_options={
+        "path": s3_output_path
+    },
+    transformation_ctx="datasink"
+)
+print(f"Successfully wrote clean data to: {s3_output_path}")
 
 job.commit()
