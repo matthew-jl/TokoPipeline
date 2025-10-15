@@ -1,16 +1,17 @@
 import json
 import re
 import time
+import sys
 from playwright.sync_api import sync_playwright, TimeoutError
 from typing import List, Dict
 from datetime import datetime
 import boto3
 
-def upload_to_s3(bucket_name: str, data: List[Dict]) -> None:
+def upload_to_s3(bucket_name: str, data: List[Dict], product_name: str ) -> None:
     s3_client = boto3.client('s3')
     json_data = json.dumps(data, indent=4, ensure_ascii=False)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    file_name = f"raw-reviews/reviews_{timestamp}.json"
+    file_name = f"raw-reviews/{product_name}.json"
     try:
         s3_client.put_object(
             Bucket=bucket_name,
@@ -22,7 +23,6 @@ def upload_to_s3(bucket_name: str, data: List[Dict]) -> None:
         print(f"Error uploading to S3: {e}")
 
 def scrape_tokopedia_reviews(url: str) -> List[Dict]:
-    
     all_reviews_data = []
     scraped_review_texts = set()
 
@@ -117,25 +117,40 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
             
     return all_reviews_data
 
+def extract_product_name(url: str) -> str:
+    try:
+        # Example: .../product-name-sku/review -> product-name-sku
+        path_segments = url.strip('/').split('/')
+        product_segment = path_segments[-2]
+        return product_segment
+    except IndexError:
+        print("Warning: Could not extract product name from URL. Using a generic name.")
+        return f"unknown-product-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Error: No URL provided.", file=sys.stderr)
+        print("Usage: python scraper.py <tokopedia_review_url>", file=sys.stderr)
+        sys.exit(1)
+    target_url = sys.argv[1]
+
     S3_BUCKET_NAME = "tokopedia-reviews-matthewjl"
 
-    # (REPLACE THIS WITH DESIRED PRODUCT REVIEW PAGE. Make sure it ends with "/review" for Tokopedia)
-    target_url = "https://www.tokopedia.com/project1945/project-1945-x-cj-petruk-perfume-edp-parfum-unisex-100ml-1730927312240412298/review"
+    product_name = extract_product_name(target_url)
+    print(f"Extracted product name: {product_name}")
     
     scraped_reviews = scrape_tokopedia_reviews(target_url)
     
     if scraped_reviews:
-        
         print(f"\nSuccessfully scraped a total of {len(scraped_reviews)} unique reviews.")
 
         # Save to local file (comment out)
-        # output_filename = "reviews.json"
-        # with open(output_filename, 'w', encoding='utf-8') as f:
-        #     json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
-        # print(f"Data saved to {output_filename}")
+        output_filename = f"reviews-{product_name}.json"
+        with open(output_filename, 'w', encoding='utf-8') as f:
+            json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
+        print(f"Data saved to {output_filename}")
 
         # Upload to S3
-        upload_to_s3(S3_BUCKET_NAME, scraped_reviews)
+        # upload_to_s3(S3_BUCKET_NAME, scraped_reviews)
     else:
         print("\nNo reviews were scraped. An empty file was not created.")
