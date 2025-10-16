@@ -64,6 +64,22 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
                 review_containers = page.query_selector_all('article.css-15m2bcr')
                 print(f"Found {len(review_containers)} review containers on this page.")
                 
+                # Expand reviews by clicking on "Selengkapnya" button
+                show_more_buttons = page.get_by_text("Selengkapnya").all() # Use this because "Tutup Ulasan" has the same selector
+                # show_more_buttons = page.get_by_role("button", name="Selengkapnya")
+
+                if len(show_more_buttons) > 0:
+                    for button in show_more_buttons:
+                        try:
+                            button.click(timeout=1000)
+                        except Exception:
+                            pass 
+                    
+                    print(f"Clicked {len(show_more_buttons)} 'Selengkapnya' buttons. Waiting for content to load...")
+                    time.sleep(1) 
+                else:
+                    print("No 'Selengkapnya' buttons found on this page.")
+
                 new_reviews_found = 0
                 for container in review_containers:
                     review_text_element = container.query_selector('p[data-unify="Typography"] span[data-testid="lblItemUlasan"]')
@@ -101,7 +117,7 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
                 next_button.click()
                 
                 print("Waiting for new content to load...")
-                page.wait_for_load_state('networkidle', timeout=20000)
+                # page.wait_for_load_state('networkidle', timeout=20000)
                 
                 page_number += 1
                 time.sleep(2) # to avoid overwhelming server
@@ -145,12 +161,12 @@ if __name__ == "__main__":
         print(f"\nSuccessfully scraped a total of {len(scraped_reviews)} unique reviews.")
 
         # Save to local file (comment out)
-        output_filename = f"reviews-{product_name}.json"
-        with open(output_filename, 'w', encoding='utf-8') as f:
-            json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
-        print(f"Data saved to {output_filename}")
+        # output_filename = f"reviews-{product_name}.json"
+        # with open(output_filename, 'w', encoding='utf-8') as f:
+        #     json.dump(scraped_reviews, f, indent=4, ensure_ascii=False)
+        # print(f"Data saved to {output_filename}")
 
         # Upload to S3
-        # upload_to_s3(S3_BUCKET_NAME, scraped_reviews)
+        upload_to_s3(S3_BUCKET_NAME, scraped_reviews, product_name)
     else:
         print("\nNo reviews were scraped. An empty file was not created.")
