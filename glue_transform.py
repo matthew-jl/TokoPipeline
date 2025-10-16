@@ -6,44 +6,34 @@ from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-from pyspark.sql.functions import col, when
+from pyspark.sql.functions import col, when, lit
 from pyspark.sql.types import IntegerType
 from awsglue.dynamicframe import DynamicFrame
+import os
 
-def get_latest_s3_object_key(bucket, prefix):
-    s3_client = boto3.client('s3')
-    try:
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        if 'Contents' not in response:
-            print(f"No objects found in s3://{bucket}/{prefix}")
-            return None
-        latest_object = sorted(response['Contents'], key=lambda obj: obj['LastModified'], reverse=True)[0]
-        print(f"Found latest file to process: {latest_object['Key']}")
-        return latest_object['Key']
-    except Exception as e:
-        print(f"Error finding latest object in S3: {e}")
-        return None
+expected_args = ['JOB_NAME', 's3_input_path']
+args = getResolvedOptions(sys.argv, expected_args)
 
 # Boilerplate for Glue and Spark contexts
-args = getResolvedOptions(sys.argv, ['JOB_NAME'])
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-# REPLACE WITH YOUR BUCKET PATH
-s3_bucket = "tokopedia-reviews-matthewjl"
-s3_prefix = "raw-reviews/"
+s3_input_path = args['s3_input_path']
 
-latest_file_key = get_latest_s3_object_key(s3_bucket, s3_prefix)
-if not latest_file_key:
-    print("ETL process stopped: No new file to process.")
+try:
+    filename = os.path.basename(s3_input_path)
+    product_name = os.path.splitext(filename)[0]
+except Exception as e:
+    print(f"Error: Could not extract product name from S3 path: {s3_input_path}", file=sys.stderr)
+    print(f"Details: {e}", file=sys.stderr)
     job.commit()
-    sys.exit(0)
+    sys.exit(1)
 
-s3_input_path = f"s3://{s3_bucket}/{latest_file_key}"
-print(f"Reading raw JSON data from single file: {s3_input_path}")
+print(f"Starting ETL job for product: {product_name}")
+print(f"Reading raw JSON data from provided path: {s3_input_path}")
 
 dynamic_frame_raw = glueContext.create_dynamic_frame.from_options(
     connection_type="s3",
@@ -77,7 +67,10 @@ df_with_sentiment = df_with_types.withColumn("sentiment",
     .when(col("star_rating_int") == 3, "neutral")
     .otherwise("negative")
 )
-df_final = df_with_sentiment.select(
+# Add product_name column
+df_with_product = df_with_sentiment.withColumn("product_name", lit(product_name))
+df_final = df_with_product.select(
+    col("product_name"),
     col("review_text"),
     col("star_rating_int").alias("star_rating"), # Rename back to star_rating
     col("sentiment")
@@ -88,6 +81,7 @@ print("\n--- Sample of Final Data (Top 10 rows) ---")
 df_final.show(10, truncate=False)
 
 print("Preparing to write data to the clean zone...")
+s3_bucket = s3_input_path.split('/')[2]
 s3_output_path = f"s3://{s3_bucket}/clean-reviews-parquet/"
 # convert the Spark DataFrame back to a Glue DynamicFrame
 dynamic_frame_final = DynamicFrame.fromDF(df_final, glueContext, "dynamic_frame_final")
