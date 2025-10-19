@@ -65,7 +65,7 @@ def scrape_tokopedia_reviews(url: str) -> List[Dict]:
                 print(f"Found {len(review_containers)} review containers on this page.")
                 
                 # Expand reviews by clicking on "Selengkapnya" button
-                show_more_buttons = page.get_by_text("Selengkapnya").all() # Use this because "Tutup Ulasan" has the same selector
+                show_more_buttons = page.get_by_text("Selengkapnya", exact=True).all() # Use this because "Tutup Ulasan" has the same selector
                 # show_more_buttons = page.get_by_role("button", name="Selengkapnya")
 
                 if len(show_more_buttons) > 0:
