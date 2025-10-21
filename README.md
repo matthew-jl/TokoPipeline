@@ -4,7 +4,7 @@
 
 TokoPipeline is an e-commerce review summary pipeline built on Amazon Web Services (AWS). This pipeline ingests raw product reviews from a popular (green) Indonesian e-commerce website, processes the data in a serverless environment, and uses a generative AI model (Google Gemini) to produce a concise summary of a product's pros and cons based on real user reviews.
 
-> [Check out the demo video here!]()
+> [Check out the demo video here!](https://youtu.be/IvpCCmheR0M)
 
 This project was built as my final project for CS50x: Introduction to Computer Science. I took CS50x in late 2024 and finished this final project in 2025. The ten weeks worth of lectures, problems, and projects have given me a strong foundation in programming and computer science. Using that knowledge, I set out to solve a problem that I (and many friends) faced frequently: wasting a lot of time reading reviews on e-commerce sites. I thought it would be convenient to get concise summaries of the pros and cons of the product based on other users' reviews without having to read them. Hence, the result was TokoPipeline. 
 
