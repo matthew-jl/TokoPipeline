@@ -49,7 +49,7 @@ I chose this data pipeline idea because I'm also interested in learning about da
 
 -   **Automated Sentiment Analysis →** A PySpark job running in AWS Glue automatically categorizes reviews into "positive," "negative," and "neutral" sentiments based on their star rating.
 -   **Feature Engineering for AI →** The pipeline performs word frequency analysis on the review text, filtering out common stop words to identify the most relevant and impactful keywords for each sentiment category.
--   **Generative AI Summaries →** These focused keywords are sent to the Google Gemini API, which generates a concise, user-friendly, bulleted list of product "Pros" and "Cons," transforming thereviews into actionable insights.
+-   **Generative AI Summaries →** These focused keywords are sent to the Google Gemini API, which generates a concise, user-friendly, bulleted list of product "Pros" and "Cons," transforming the reviews into actionable insights.
 
 ### Event-Driven Cloud Architecture
 
